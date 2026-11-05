@@ -4,8 +4,7 @@ name: Publish to PyPI
 # Can also be triggered manually from the Actions tab as an escape hatch.
 on:
   push:
-    tags:
-      - 'v20*'  # CalVer tags: v2026.5.15, v2026.5.15.2, etc.
+    tags: ["v20*"]
   workflow_dispatch:
     inputs:
       confirm_tag:
@@ -14,6 +13,7 @@ on:
         type: string
 
 # Restrict default token to read-only; each job escalates as needed.
+
 permissions:
   contents: read
 

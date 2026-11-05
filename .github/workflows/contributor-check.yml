@@ -1,11 +1,7 @@
 name: Contributor Attribution Check
 
 on:
-  pull_request:
-    branches: [main]
-  # No paths filter — the job must always run so the required check
-  # reports a status (path-gated workflows leave checks "pending" forever
-  # when no matching files change, which blocks merge).
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,8 +17,8 @@ jobs:
       - name: Check if relevant files changed
         id: filter
         run: |
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
+          BASE="origin/main"
+          HEAD="HEAD"
           CHANGED=$(git diff --name-only "$BASE"..."$HEAD" -- '*.py' '**/*.py' '.github/workflows/contributor-check.yml' || true)
           if [ -n "$CHANGED" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"

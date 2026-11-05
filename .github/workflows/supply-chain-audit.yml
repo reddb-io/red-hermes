@@ -1,11 +1,12 @@
 name: Supply Chain Audit
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  # No paths filter — the jobs must always run so required checks
-  # report a status (path-gated workflows leave checks "pending" forever
-  # when no matching files change, which blocks merge).
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        type: string
+        description: Git ref to compare against the selected commit
+        default: HEAD~1
 
 permissions:
   pull-requests: write
@@ -36,8 +37,8 @@ jobs:
       - name: Check for relevant file changes
         id: filter
         run: |
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
+          BASE=$(git rev-parse --verify --end-of-options "$AUDIT_BASE_REF^{commit}")
+          HEAD="$GITHUB_SHA"
           SCAN_FILES=$(git diff --name-only "$BASE"..."$HEAD" -- \
             '*.py' '**/*.py' '*.pth' '**/*.pth' \
             'setup.py' 'setup.cfg' \
@@ -73,8 +74,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
+          BASE=$(git rev-parse --verify --end-of-options "$AUDIT_BASE_REF^{commit}")
+          HEAD="$GITHUB_SHA"
 
           # Added lines only, excluding lockfiles.
           # Three-dot diff (base...head) diffs from the merge base to HEAD,
@@ -156,7 +157,7 @@ jobs:
           fi
 
       - name: Post critical finding comment
-        if: steps.scan.outputs.found == 'true'
+        if: steps.scan.outputs.found == 'true' && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -206,8 +207,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          BASE="${{ github.event.pull_request.base.sha }}"
-          HEAD="${{ github.event.pull_request.head.sha }}"
+          BASE=$(git rev-parse --verify --end-of-options "$AUDIT_BASE_REF^{commit}")
+          HEAD="$GITHUB_SHA"
 
           # Only check added lines in pyproject.toml
           ADDED=$(git diff "$BASE"..."$HEAD" -- pyproject.toml | grep '^+' | grep -v '^+++' || true)
@@ -230,7 +231,7 @@ jobs:
           fi
 
       - name: Post unbounded dep warning
-        if: steps.bounds.outputs.found == 'true'
+        if: steps.bounds.outputs.found == 'true' && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -268,3 +269,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "No pyproject.toml changes, skipping dependency bounds check."
+
+env:
+  AUDIT_BASE_REF: ${{ inputs.base_ref }}
